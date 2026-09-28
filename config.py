@@ -26,7 +26,7 @@ MAX_CANDLES_AGO = 15
 TIMEFRAMES = ['15m', '1h', '4h']
 
 # ===== صرافی =====
-EXCHANGE = 'MEXC'
+EXCHANGE = 'mexc'
 
 # ===== محدودیت دریافت کندل =====
 CANDLE_LIMIT = 1000
