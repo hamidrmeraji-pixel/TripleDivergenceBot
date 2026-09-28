@@ -5,7 +5,9 @@
 import os
 import json
 import time
+import threading
 from datetime import datetime
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
 import config
 from data_fetcher import get_usdt_symbols, fetch_ohlcv
@@ -14,6 +16,26 @@ from pivot_detector import detect_pivots, get_pivot_points
 from divergence_engine import detect_divergence
 from chart_generator import generate_divergence_chart
 from telegram_bot import send_message, send_photo
+
+
+# ===== Health Server (for Cloud Hosting) =====
+def run_health_server():
+    """Simple web server to keep bot alive on cloud platforms"""
+    port = int(os.environ.get('PORT', 8000))
+    
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header('Content-type', 'text/plain')
+            self.end_headers()
+            self.wfile.write(b"Triple Divergence Bot is alive!")
+        
+        def log_message(self, format, *args):
+            pass
+    
+    server = HTTPServer(('0.0.0.0', port), Handler)
+    print(f"Health server started on port {port}")
+    server.serve_forever()
 
 
 # ===== Alert Memory =====
@@ -116,7 +138,6 @@ def scan_all():
                     
                     print(f"\nNEW: {symbol} {tf} — {div['label']} ({div['candles_ago']} candles ago)")
                     
-                    # Chart
                     chart_path = f"alerts/{symbol.replace('/', '_')}_{tf}.png"
                     os.makedirs('alerts', exist_ok=True)
                     
@@ -124,7 +145,6 @@ def scan_all():
                         df, div, symbol, tf, chart_path
                     )
                     
-                    # English caption
                     caption = (
                         f"<b>{symbol}</b> — <b>{tf}</b>\n"
                         f"<b>{div['label']}</b>\n"
@@ -139,7 +159,6 @@ def scan_all():
                         f"  • {div['rsi_values'][2]:.2f}"
                     )
                     
-                    # Send
                     if chart_result and os.path.exists(chart_result):
                         send_photo(chart_result, caption)
                     else:
@@ -173,6 +192,10 @@ def main():
     print(f"Scan interval: {config.SCAN_INTERVAL_SECONDS}s")
     print(f"MAX_CANDLES_AGO = {config.MAX_CANDLES_AGO}")
     print("="*60)
+    
+    # Start health server in background
+    threading.Thread(target=run_health_server, daemon=True).start()
+    time.sleep(2)
     
     send_message(
         f"<b>Triple Divergence Bot Started</b>\n\n"
